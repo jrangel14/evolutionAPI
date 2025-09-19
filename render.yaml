@@ -1,22 +1,27 @@
-# render.yaml
+# render.yaml para desplegar Evolution API con Postgres + Redis en Render
 
 services:
-  - name: evolution-api
-    type: web
+  # Servicio para la API Evolution
+  - type: web
+    name: evolution-api
     env: docker
-    plan: starter     # o el plan que quieras usar
-    dockerContext: .  # si tu Dockerfile está en root
-    # Si ya tienes la imagen alojada, puedes usar image en lugar del build
-    dockerfilePath: ./Dockerfile   # si tu proyecto incluye Dockerfile para la API
+    # Si ya tienes Dockerfile en tu repo, Render lo usará para construir
+    rootDir: .        # carpeta donde está Dockerfile
+    plan: standard     # usar un plan más robusto para producción; starter si es prueba
+    region: oregon     # ajusta a tu región más cercana / la que prefieras
+    buildCommand: docker build . -t evolution-api
+    startCommand: docker run --rm -p 10000:8080 evolution-api  # Esta línea puede variar: si usas `image:` en Render, usas otro approach
     envVars:
       - key: AUTHENTICATION_API_KEY
-        value: your_api_key_here
+        sync: false
       - key: DATABASE_ENABLED
         value: "true"
       - key: DATABASE_PROVIDER
         value: "postgresql"
       - key: DATABASE_CONNECTION_URI
-        value: "postgres://evouser:1234@localhost:5432/evolutiondb" # ver más abajo
+        fromDatabase:
+          name: evolutiondb
+          property: connectionString
       - key: DATABASE_CONNECTION_CLIENT_NAME
         value: evolution_exchange
       - key: DATABASE_SAVE_DATA_INSTANCE
@@ -36,7 +41,10 @@ services:
       - key: CACHE_REDIS_ENABLED
         value: "true"
       - key: CACHE_REDIS_URI
-        value: redis://redis:6379/6
+        fromService:
+          type: keyvalue
+          name: evolution-redis
+          property: connectionString
       - key: CACHE_REDIS_PREFIX_KEY
         value: evolution
       - key: CACHE_REDIS_SAVE_INSTANCES
@@ -46,36 +54,32 @@ services:
       - key: CONFIG_SESSION_PHONE_VERSION
         value: "2.3000.1023204200"
     dependsOn:
-      - evolution-postgres
+      - evolutiondb
       - evolution-redis
-    # opcional: healthCheckPath, etc.
+    # Health check opcional, si tu imagen lo soporta
+    healthCheckPath: /health  # ajustar si tu API tiene un endpoint de salud
 
-  - name: evolution-postgres
-    type: postgres
-    plan: starter     # o el plan que mejor se adapte
-    region: us-central (o el que uses)
-    # También puedes definir el tamaño, backups, etc.
-    envVars:
-      - key: POSTGRES_USER
-        value: evouser
-      - key: POSTGRES_PASSWORD
-        fromSecret: postgresPassword  # ideal mover al secreto
-      - key: POSTGRES_DB
-        value: evolutiondb
-
-  - name: evolution-redis
-    type: redis
-    plan: starter
-    region: same_as_other_services
+  # Servicio Redis (Key-Value) gestionado por Render
+  - type: keyvalue
+    name: evolution-redis
+    plan: starter     # puedes usar plan más grande si necesitas más memoria / rendimiento
+    region: oregon    # misma región que la API y la DB para evitar latencia
 
 databases:
-  # Si prefieres usar servicio gestionado de Render para Postgres
   - name: evolutiondb
-    plan: starter
-    region: your_region
+    plan: starter     # plan de postgres gestionado
+    region: oregon
 
-storage:
-  # Para persistencia de files/media/instancias si lo necesitas
-  - name: evolution-instances
-    sizeGB: 10   # lo que necesites
-    region: your_region
+# Opcional: grupos de variables de entorno si tienes muchas que repetir
+envVarGroups:
+  - name: common-evolution
+    envVars:
+      - key: DATABASE_PROVIDER
+        value: postgresql
+      - key: AUTHENTICATION_API_KEY
+        sync: false
+      # puedes incluir otras que sean compartidas entre servicios, aunque aquí sólo la API lo usa
+
+# Previews (ambientes de PR u otras ramas) opcional
+previews:
+  generation: automatic
