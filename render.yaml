@@ -1,16 +1,23 @@
-# render.yaml para desplegar Evolution API con Postgres + Redis en Render
+# render.yaml para Evolution API con Postgres gestionado y Redis (Key-Value) en Render
+# Versión optimizada sin dependsOn, con health check y buenas prácticas
 
 services:
-  # Servicio para la API Evolution
   - type: web
     name: evolution-api
     env: docker
-    # Si ya tienes Dockerfile en tu repo, Render lo usará para construir
-    rootDir: .        # carpeta donde está Dockerfile
-    plan: standard     # usar un plan más robusto para producción; starter si es prueba
-    region: oregon     # ajusta a tu región más cercana / la que prefieras
+    # Si la imagen viene de tu Dockerfile en el repo
+    rootDir: .
+    plan: standard
+    region: oregon
+
+    # Comando para construir y arrancar (ajusta si ya usas imagen de Registry)
+    # Si usas `image:` omití esta sección
     buildCommand: docker build . -t evolution-api
-    startCommand: docker run --rm -p 10000:8080 evolution-api  # Esta línea puede variar: si usas `image:` en Render, usas otro approach
+    startCommand: ./wait-for-services.sh && docker run --rm -p 8080:8080 evolution-api
+
+    # Health check: endpoint que responde ok, para que Render sepa que la API está lista
+    healthCheckPath: /health
+
     envVars:
       - key: AUTHENTICATION_API_KEY
         sync: false
@@ -44,7 +51,7 @@ services:
         fromService:
           type: keyvalue
           name: evolution-redis
-          property: connectionString
+          property: internalURL  # puede ser `connectionString` o `internalURL` dependiendo del tipo
       - key: CACHE_REDIS_PREFIX_KEY
         value: evolution
       - key: CACHE_REDIS_SAVE_INSTANCES
@@ -53,33 +60,17 @@ services:
         value: "false"
       - key: CONFIG_SESSION_PHONE_VERSION
         value: "2.3000.1023204200"
-    dependsOn:
-      - evolutiondb
-      - evolution-redis
-    # Health check opcional, si tu imagen lo soporta
-    healthCheckPath: /health  # ajustar si tu API tiene un endpoint de salud
+    # Opcional: parámetro para shutdown grace-period
+    maxShutdownDelaySeconds: 60
 
-  # Servicio Redis (Key-Value) gestionado por Render
   - type: keyvalue
     name: evolution-redis
-    plan: starter     # puedes usar plan más grande si necesitas más memoria / rendimiento
-    region: oregon    # misma región que la API y la DB para evitar latencia
+    plan: starter
+    region: oregon
+    # No necesitas healthCheckPath para KeyValue, sólo para servicios web
 
 databases:
   - name: evolutiondb
-    plan: starter     # plan de postgres gestionado
+    plan: starter
     region: oregon
 
-# Opcional: grupos de variables de entorno si tienes muchas que repetir
-envVarGroups:
-  - name: common-evolution
-    envVars:
-      - key: DATABASE_PROVIDER
-        value: postgresql
-      - key: AUTHENTICATION_API_KEY
-        sync: false
-      # puedes incluir otras que sean compartidas entre servicios, aunque aquí sólo la API lo usa
-
-# Previews (ambientes de PR u otras ramas) opcional
-previews:
-  generation: automatic
