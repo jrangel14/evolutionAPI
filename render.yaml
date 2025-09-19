@@ -1,13 +1,11 @@
-# render.yaml ajustado con ipAllowList y configuraciones válidas
-
 services:
   - type: web
     name: evolution-api
-    runtime: docker
+    runtime: image
     plan: free
     region: oregon
-    rootDir: .
-
+    image:
+      url: atendai/evolution-api:v2.2.3
     healthCheckPath: /health
 
     envVars:
@@ -57,7 +55,7 @@ services:
     name: evolution-redis
     plan: free
     region: oregon
-    ipAllowList: []   # Sólo permitir conexiones internas entre servicios de Render
+    ipAllowList: []
 
 databases:
   - name: evolutiondb
