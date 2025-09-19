@@ -1,12 +1,12 @@
-# render.yaml ajustado intentando Free tier de Render
+# render.yaml ajustado con ipAllowList y configuraciones válidas
 
 services:
   - type: web
     name: evolution-api
-    env: docker
+    runtime: docker
+    plan: free
+    region: oregon
     rootDir: .
-    plan: free        # especificar plan gratuito
-    region: oregon    # elegir región que Render permita en free
 
     healthCheckPath: /health
 
@@ -57,10 +57,7 @@ services:
     name: evolution-redis
     plan: free
     region: oregon
-    # ipAllowList:
-    #   - source: 0.0.0.0/0
-    #     description: allow all
-    # En free, posiblemente puedas dejar ipAllowList vacío para acceso solo interno
+    ipAllowList: []   # Sólo permitir conexiones internas entre servicios de Render
 
 databases:
   - name: evolutiondb
