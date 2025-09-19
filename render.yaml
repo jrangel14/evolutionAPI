@@ -1,40 +1,81 @@
-version: '3.9'
+# render.yaml
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: evolution_postgres
-    restart: always
-    environment:
-      POSTGRES_USER: evouser
-      POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: evolutiondb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  - name: evolution-api
+    type: web
+    env: docker
+    plan: starter     # o el plan que quieras usar
+    dockerContext: .  # si tu Dockerfile está en root
+    # Si ya tienes la imagen alojada, puedes usar image en lugar del build
+    dockerfilePath: ./Dockerfile   # si tu proyecto incluye Dockerfile para la API
+    envVars:
+      - key: AUTHENTICATION_API_KEY
+        value: your_api_key_here
+      - key: DATABASE_ENABLED
+        value: "true"
+      - key: DATABASE_PROVIDER
+        value: "postgresql"
+      - key: DATABASE_CONNECTION_URI
+        value: "postgres://evouser:1234@localhost:5432/evolutiondb" # ver más abajo
+      - key: DATABASE_CONNECTION_CLIENT_NAME
+        value: evolution_exchange
+      - key: DATABASE_SAVE_DATA_INSTANCE
+        value: "true"
+      - key: DATABASE_SAVE_DATA_NEW_MESSAGE
+        value: "true"
+      - key: DATABASE_SAVE_MESSAGE_UPDATE
+        value: "true"
+      - key: DATABASE_SAVE_DATA_CONTACTS
+        value: "true"
+      - key: DATABASE_SAVE_DATA_CHATS
+        value: "true"
+      - key: DATABASE_SAVE_DATA_LABELS
+        value: "true"
+      - key: DATABASE_SAVE_DATA_HISTORIC
+        value: "true"
+      - key: CACHE_REDIS_ENABLED
+        value: "true"
+      - key: CACHE_REDIS_URI
+        value: redis://redis:6379/6
+      - key: CACHE_REDIS_PREFIX_KEY
+        value: evolution
+      - key: CACHE_REDIS_SAVE_INSTANCES
+        value: "false"
+      - key: CACHE_LOCAL_ENABLED
+        value: "false"
+      - key: CONFIG_SESSION_PHONE_VERSION
+        value: "2.3000.1023204200"
+    dependsOn:
+      - evolution-postgres
+      - evolution-redis
+    # opcional: healthCheckPath, etc.
 
-  redis:
-    image: redis:7
-    container_name: evolution_redis
-    restart: always
-    ports:
-      - "6379:6379"
+  - name: evolution-postgres
+    type: postgres
+    plan: starter     # o el plan que mejor se adapte
+    region: us-central (o el que uses)
+    # También puedes definir el tamaño, backups, etc.
+    envVars:
+      - key: POSTGRES_USER
+        value: evouser
+      - key: POSTGRES_PASSWORD
+        fromSecret: postgresPassword  # ideal mover al secreto
+      - key: POSTGRES_DB
+        value: evolutiondb
 
-  evolution-api:
-    container_name: evolution_api
-    image: atendai/evolution-api:v2.1.1
-    restart: always
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - evolution_instances:/evolution/instances
+  - name: evolution-redis
+    type: redis
+    plan: starter
+    region: same_as_other_services
 
-volumes:
-  postgres_data:
-  evolution_instances:
+databases:
+  # Si prefieres usar servicio gestionado de Render para Postgres
+  - name: evolutiondb
+    plan: starter
+    region: your_region
+
+storage:
+  # Para persistencia de files/media/instancias si lo necesitas
+  - name: evolution-instances
+    sizeGB: 10   # lo que necesites
+    region: your_region
