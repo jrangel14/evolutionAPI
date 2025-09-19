@@ -1,15 +1,12 @@
-# render.yaml corregido
+# render.yaml ajustado intentando Free tier de Render
 
 services:
   - type: web
     name: evolution-api
     env: docker
     rootDir: .
-    plan: standard
-    region: oregon
-
-    # No usar startCommand cuando env: docker
-    # Asume que el Dockerfile define ENTRYPOINT o CMD correctos
+    plan: free        # especificar plan gratuito
+    region: oregon    # elegir región que Render permita en free
 
     healthCheckPath: /health
 
@@ -46,7 +43,7 @@ services:
         fromService:
           type: keyvalue
           name: evolution-redis
-          property: connectionString   # Cambiado desde internalURL a connectionString
+          property: connectionString
       - key: CACHE_REDIS_PREFIX_KEY
         value: evolution
       - key: CACHE_REDIS_SAVE_INSTANCES
@@ -58,14 +55,14 @@ services:
 
   - type: keyvalue
     name: evolution-redis
-    plan: starter
+    plan: free
     region: oregon
-    ipAllowList:
-      - source: 0.0.0.0/0    # permitir todo (o ajustar a las IPs externas que necesites)
-        description: allow all
-    # omitir healthCheckPath aquí
+    # ipAllowList:
+    #   - source: 0.0.0.0/0
+    #     description: allow all
+    # En free, posiblemente puedas dejar ipAllowList vacío para acceso solo interno
 
 databases:
   - name: evolutiondb
-    plan: starter
+    plan: free
     region: oregon
